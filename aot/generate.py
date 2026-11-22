@@ -48,6 +48,17 @@ def read_programs(path):
     return result
 
 
+def widen_actor_tiles(program):
+    # The metasprite loop drops each row of tiles independently of the video
+    # hardware. Keep its 32-pixel left guard and cover both camera extremes.
+    code = bytearray(program)
+    if code[0x577a:0x5786] != bytes.fromhex("0c46 ffe0 6f32 0c46 0100 6c2c"):
+        raise ValueError("Unexpected main-program sprite bounds")
+    struct.pack_into(">h", code, 0x577c, -32 - 43)
+    struct.pack_into(">h", code, 0x5782, 256 + 2 * 43)
+    return bytes(code)
+
+
 def decode_table(source):
     bodies = dict(re.findall(r"^static void (m68k_op_\w+)\(void\)\n\{\n(.*?)^\}", source, re.M | re.S))
     table = [("m68k_op_illegal", 0)] * 65536
@@ -188,13 +199,14 @@ def main():
     args = parser.parse_args()
     args.out.mkdir(parents=True,exist_ok=True)
     images = read_programs(args.rom)
-    ops = sorted({w for image in images for w, in struct.iter_unpack(">H",image)})
+    translated = [widen_actor_tiles(images[0]), images[1]]
+    ops = sorted({w for image in translated for w, in struct.iter_unpack(">H",image)})
     bodies, table = decode_table((args.generated / "m68kops.c").read_text())
     cpu = args.fbneo / "src/cpu/m68k"
     generate_header(cpu,args.out)
     generate_core(cpu,table,args.out)
     write_kernels(ops,bodies,table,args.out)
-    write_sites(images,ops,args.out)
+    write_sites(translated,ops,args.out)
     stats = {"cpu_sites":[len(image)//2 for image in images],
              "reset_pc":[int.from_bytes(image[4:8],"big") for image in images],
              "decoded_operations":len(ops),"program_sha256":[hashlib.sha256(b).hexdigest() for b in images]}
