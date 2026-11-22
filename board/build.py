@@ -42,7 +42,12 @@ static const struct {const char *game_name; char *sourcefile;} sourcefile_table[
     ]:
         assert code.count(before) == 1, before
         code = code.replace(before, after)
-    update(GEN/"street64_devices.cpp", code)
+    # Apply the single-title renderer changes to a private build copy.
+    raw = GEN / "street64_devices_base.cpp"
+    update(raw, code)
+    subprocess.run(["patch", "--silent", "--batch", "--fuzz=0",
+                    "-o", str(GEN / "street64_devices.cpp"), str(raw),
+                    str(HERE / "widescreen.patch")], check=True)
 
 def compile_object(source):
     cpp = source.suffix == ".cpp"

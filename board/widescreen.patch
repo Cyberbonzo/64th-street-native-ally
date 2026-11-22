@@ -1,0 +1,207 @@
+--- street64_devices.cpp
++++ street64_devices.cpp
+@@ -2,6 +2,7 @@
+ // Based on MAME driver by Luca Elia
+ 
+ #include "tiles_generic.h"
++#include "street64_board.h"
+ #include "m68000_intf.h"
+ #include "z80_intf.h"
+ #include "burn_ym2203.h"
+@@ -2417,7 +2418,7 @@
+ 
+ 	DrvPalette	= (UINT32*)Next; Next += 0x0400 * sizeof(UINT32);
+ 
+-	DrvSpriteBMP = (UINT16*)Next; Next += 256 * 256 * sizeof(UINT16);
++	DrvSpriteBMP = (UINT16*)Next; Next += STREET64_WIDTH * 256 * sizeof(UINT16);
+ 
+ 	AllRam		= Next;
+ 
+@@ -3023,11 +3024,33 @@
+ // sprite trails (p47 Jaleco bootup logo) effect by Haze
+ // Mosaic effect by iq_132 & dink
+ 
++// The stage HUD spells TIME using four consecutive character tiles. Its
++// fixed atlas coordinates distinguish gameplay from the title and story art.
++static bool street_stage_hud()
++{
++	if (!(scroll_flag[2] & 0x10) || scrollx[2] || scrolly[2]) return false;
++	const UINT16 *text = (const UINT16 *)DrvScrRAM[2];
++	for (int i = 0; i < 4; ++i) {
++		const int tile = BURN_ENDIAN_SWAP_INT16(text[(14 + i) * 32 + 3]) & 0xfff;
++		if (tile != 0x154 + i) return false;
++	}
++	return true;
++}
++
++// Both scenery planes and the characters use the same screen origin. At
++// the start of a street, show the extra space ahead until there is scenery
++// behind the original camera. Never wrap to the far end of the map there.
++static int street_camera_margin(bool stage)
++{
++	if (!stage) return STREET64_MARGIN;
++	return (scrollx[0] < STREET64_MARGIN) ? scrollx[0] : STREET64_MARGIN;
++}
++
+ static void sprite_mixer()
+ {
+ 	for (INT32 y = 0; y < nScreenHeight; y++)
+ 	{
+-		UINT16 *sprite = DrvSpriteBMP + y * 256;
++		UINT16 *sprite = DrvSpriteBMP + y * STREET64_WIDTH;
+ 		UINT16 *dest = pTransDraw + y * nScreenWidth;
+ 		UINT8 *prio = pPrioDraw + y * nScreenWidth;
+ 
+@@ -3048,9 +3071,9 @@
+ {
+ 	for (INT32 y = 0; y < 256; y++)
+ 	{
+-		UINT16 *dest = DrvSpriteBMP + y * 256;
+-
+-		for (INT32 x = 0; x < 256; x++)
++		UINT16 *dest = DrvSpriteBMP + y * STREET64_WIDTH;
++
++		for (INT32 x = 0; x < STREET64_WIDTH; x++)
+ 		{
+ 			UINT16 pxl = (dest[x] &= 0x7fff);
+ 			if (((pxl & 0xf0) >> 4) < modifier) {
+@@ -3071,13 +3094,11 @@
+ 
+ 	color = (color * 16) + layer_color_config[3];
+ 
+-	UINT16 *dest = DrvSpriteBMP + sy * 256 + sx;
+-
+ 	for (INT32 y = 0; y < 16; y++, sy++, sx-=16)
+ 	{
+ 		for (INT32 x = 0; x < 16; x++, sx++)
+ 		{
+-			if (sx < 0 || sy < 0 || sx >= 256 || sy >= 256) continue;
++			if (sx < 0 || sy < 0 || sx >= STREET64_WIDTH || sy >= 256) continue;
+ 
+ 			INT32 pxl;
+ 
+@@ -3087,21 +3108,22 @@
+ 				pxl = gfx[(((y ^ flipy) & ~mosaic) * 16) + ((x ^ flipx) & ~mosaic)];
+ 			}
+ 
+-			if (pxl != 0x0f && (~dest[x] & 0x8000)) {
+-				dest[x] = (pxl+color) | (priority << 14);
+-				dest[x] |= 0x8000;
++			UINT16 &dest = DrvSpriteBMP[sy * STREET64_WIDTH + sx];
++			if (pxl != 0x0f && (~dest & 0x8000)) {
++				dest = (pxl + color) | (priority << 14) | 0x8000;
+ 			}
+ 		}
+-		dest += 256;
++
+ 	}
+ }
+ 
+ static void System1A_draw_sprites()
+ {
++	const int margin = street_camera_margin(street_stage_hud());
+ 	if (sprite_flag & 0x10) {
+ 		sprite_clear_trails(sprite_flag & 0x0f);
+ 	} else {
+-		memset(DrvSpriteBMP, 0x0f, 256*256*sizeof(UINT16));
++		memset(DrvSpriteBMP, 0x0f, STREET64_WIDTH*256*sizeof(UINT16));
+ 	}
+ 
+ 	INT32 color_mask = (sprite_flag & 0x100) ? 0x07 : 0x0f;
+@@ -3145,6 +3167,8 @@
+ 				sy = 240 - sy;
+ 			}
+ 
++			sx = (sx + margin) & 0x1ff;
++			if (sx >= STREET64_WIDTH) sx -= 512;
+ 			draw_16x16_priority_sprite(code, color, sx, sy - 16, flipx, flipy, mosaic, mossol, pri);
+ 		}
+ 	}
+@@ -3152,10 +3176,11 @@
+ 
+ static void System1Z_draw_sprites()
+ {
++	const int margin = street_camera_margin(street_stage_hud());
+ 	if (sprite_flag & 0x10) {
+ 		sprite_clear_trails(sprite_flag & 0x0f);
+ 	} else {
+-		memset(DrvSpriteBMP, 0x0f, 256*256*sizeof(UINT16));
++		memset(DrvSpriteBMP, 0x0f, STREET64_WIDTH*256*sizeof(UINT16));
+ 	}
+ 
+ 	UINT16 *spriteram16 = (UINT16*)DrvSprRAM;
+@@ -3189,7 +3214,9 @@
+ 			sy = 240 - sy;
+ 		}
+ 
+-		draw_16x16_priority_sprite(code, color, sx, sy - 16, flipx, flipy, 0, 0, pri);
++		sx = (sx + margin) & 0x1ff;
++			if (sx >= STREET64_WIDTH) sx -= 512;
++			draw_16x16_priority_sprite(code, color, sx, sy - 16, flipx, flipy, 0, 0, pri);
+ 	}
+ }
+ 
+@@ -3210,7 +3237,16 @@
+ 	INT32 width   = columns * 32;
+ 	INT32 height  = rows * 32;
+ 
+-	INT32 xscroll = scrollx[tmap] & ((width * 8)-1);
++	const bool stage = street_stage_hud();
++	const bool hud = stage && tmap == 2;
++	const int margin = street_camera_margin(stage);
++	// On the ranking screen plane 1 contains the flag and repeating type.
++	// Extend only its wallpaper; scores, faces and letters are on plane 2.
++	const bool ranking = tmap == 1 && !size && !scrollx[1] && !scrolly[1] &&
++		(BURN_ENDIAN_SWAP_INT16(vidram[0]) & 0xfff) == 0xeb5 &&
++		(BURN_ENDIAN_SWAP_INT16(vidram[32]) & 0xfff) == 0xeb7;
++
++	INT32 xscroll = (scrollx[tmap] - (hud ? 0 : margin)) & ((width * 8)-1);
+ 	INT32 yscroll = (scrolly[tmap] + 16) & ((height * 8)-1);
+ 
+ 	for (INT32 row = 0; row < height; row++)
+@@ -3224,14 +3260,34 @@
+ 			if (sx < -7) sx += width * 8;
+ 			if (sy < -7) sy += height * 8;
+ 
++			if (hud) {
++				if (sx >= 256) continue;
++				// Keep each player's status at their edge, the timer and
++				// stage messages centred, and credits at the lower right.
++				int hud_offset = STREET64_MARGIN;
++				if (sy < 48 && sx < 112) hud_offset = 0;
++				if ((sy < 48 && sx >= 144) || (sy >= 200 && sx >= 160))
++					hud_offset = 2 * STREET64_MARGIN;
++				sx += hud_offset;
++			}
+ 			if (sx >= nScreenWidth || sy >= nScreenHeight) continue;
+ 
+ 			if (size) {
+ 				ofst = (col * 32) + (row / 32) * 1024 * columns + (row & 0x1f);
+ 				code = (BURN_ENDIAN_SWAP_INT16(vidram[ofst]) & 0x0fff) * scroll_factor_8x8[tmap];
+ 			} else {
+-				ofst = (((col / 2) * 16) + (row / 32) * 256 * columns + ((row / 2) & 0x0f));
+-				code = (BURN_ENDIAN_SWAP_INT16(vidram[ofst]) & 0xfff) * 4 + ((row & 1) + (col & 1) * 2);
++				int source_col = col;
++				if (ranking && (sx < margin || sx >= margin + 256)) {
++					int x = sx - margin;
++					if (x < 0) {
++						const int period = sy >= 32 && sy < 152 ? 32 : 128;
++						source_col = (x & (period - 1)) / 8;
++					} else {
++						source_col = 16 + ((x - 256) & 127) / 8;
++					}
++				}
++				ofst = (((source_col / 2) * 16) + (row / 32) * 256 * columns + ((row / 2) & 0x0f));
++				code = (BURN_ENDIAN_SWAP_INT16(vidram[ofst]) & 0xfff) * 4 + ((row & 1) + (source_col & 1) * 2);
+ 			}
+ 
+ 			if (flags == 0 && DrvTransTab[tmap][code]) continue;
+@@ -6226,7 +6282,7 @@
+ 	BDF_GAME_WORKING | BDF_HISCORE_SUPPORTED, 2, HARDWARE_MISC_POST90S, GBF_SCRFIGHT, 0,
+ 	NULL, Street64RomInfo, Street64RomName, NULL, NULL, NULL, NULL, CommonInputInfo, Street64DIPInfo,
+ 	street64Init, DrvExit, System1CFrame, DrvDraw, DrvScan, &DrvRecalc, 0x400,
+-	256, 224, 4, 3
++	STREET64_WIDTH, STREET64_HEIGHT, 16, 9
+ };
+ 
+ 

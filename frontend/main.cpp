@@ -146,12 +146,20 @@ struct Devices {
         if (SDL_UpdateTexture(texture, nullptr, pixels, STREET64_WIDTH * 4) < 0) sdl_error("Texture update");
         int width, height;
         if (SDL_GetRendererOutputSize(renderer, &width, &height) < 0) sdl_error("Display size");
-        int w = std::min(width, height * 4 / 3);
-        int h = std::min(height, width * 3 / 4);
+        int w = std::min(width, height * 16 / 9);
+        int h = std::min(height, width * 9 / 16);
         SDL_Rect dest{(width - w) / 2, (height - h) / 2, w, h};
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, nullptr, &dest);
+        // The arcade displayed 256 columns across a 4:3 picture. Keep that
+        // exact pixel scale: the 342-column texture includes a fractional
+        // guard column at either edge of the 16:9 viewport.
+        const float raster_width = h * (4.0f / 3.0f) * STREET64_WIDTH / 256.0f;
+        const SDL_FRect raster{(width - raster_width) * 0.5f, float(dest.y),
+                               raster_width, float(h)};
+        SDL_RenderSetClipRect(renderer, &dest);
+        SDL_RenderCopyF(renderer, texture, nullptr, &raster);
+        SDL_RenderSetClipRect(renderer, nullptr);
         if (paused) {
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 155);

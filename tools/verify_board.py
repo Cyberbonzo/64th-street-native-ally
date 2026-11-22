@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from struct import pack
 
-WIDTH, HEIGHT = 256, 224
+WIDTH, HEIGHT = 342, 224
 BUTTONS = dict(up=1, down=2, left=4, right=8, attack=16, jump=32, start=64, coin=128)
 
 

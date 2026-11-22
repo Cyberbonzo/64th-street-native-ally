@@ -4,7 +4,7 @@ Port Linux x86-64 da edição mundial do arcade da Jaleco. Os dois programas Mot
 
 ## Jogar no Ally
 
-O atalho **64th Street: A Detective Story** está na coleção **[Unifideck] MICROSD**. A instalação fica em `Games/64thStreet-Native` no cartão BazziteSD. O jogo apresenta o quadro de arcade de 256×224 em 4:3, com barras laterais na tela de 1920×1080, e usa o ritmo da placa de 56,19 Hz.
+O atalho **64th Street: A Detective Story** está na coleção **[Unifideck] MICROSD**. A instalação fica em `Games/64thStreet-Native` no cartão BazziteSD. O jogo renderiza em 16:9 e ocupa a tela de 1920×1080 do Ally. O raster da placa foi ampliado de 256×224 para 342×224. A apresentação preserva a proporção dos pixels do arcade e a cadência de 56,19 Hz.
 
 | Ação | ROG Ally | Teclado |
 |---|---|---|
@@ -19,7 +19,7 @@ O port mantém uma cópia do estado da partida em `saves/progress.s64`. Salva a 
 
 ## Compilar com sua ROM
 
-Em Linux x86-64, a compilação usa Git, Python 3, GCC/G++, Make, pkg-config e os arquivos de desenvolvimento do SDL2 e zlib. Com esses componentes disponíveis, execute na pasta deste projeto:
+Em Linux x86-64, a compilação usa Git, Python 3, GCC/G++, Make, patch, pkg-config e os arquivos de desenvolvimento do SDL2 e zlib. Com esses componentes disponíveis, execute na pasta deste projeto:
 
 ```sh
 bash build.sh "/caminho/para/64street.zip"
@@ -32,6 +32,12 @@ O script também aceita o ZIP externo que contém `64street.zip`. Ele verifica o
 O gerador combina os chips pares e ímpares de cada 68000, decodifica os programas e emite entradas x86-64 com operandos de extensão e destinos de instruções definidos durante a compilação. A biblioteca conserva os registradores, as interrupções e a temporização necessários ao código traduzido. O adaptador da placa usa o driver Mega System 1-C do FBNeo para a memória, vídeo, entradas e chips de áudio YM2151 e MSM6295. A interface SDL2 apresenta o resultado e lê os controles.
 
 As ferramentas e adaptações estão neste repositório. As imagens dos chips e a biblioteca gerada a partir delas ficam na cópia privada do jogador. As condições de uso do código do FBNeo estão em [licenses/FBNeo.txt](licenses/FBNeo.txt). [Fontes dos dispositivos na revisão usada](https://github.com/finalburnneo/FBNeo/tree/61cd3ede225ec44b84011f7679db68123d72725d).
+
+## Campo de visão 16:9
+
+O renderizador lê mais colunas dos mapas de cenário e dos sprites. No começo da rua, a câmera mostra o cenário à frente; com o deslocamento da fase, ela passa a revelar as duas laterais. Os indicadores dos jogadores ficam próximos às extremidades, e o cronômetro permanece centralizado. As ilustrações fixas da história e os retratos da seleção mantêm as dimensões originais sobre o fundo do jogo.
+
+O teste comparou duas execuções de 3.351 quadros com a mesma sequência de entradas. Na primeira fase foi possível conferir, no mesmo quadro, a silhueta original dos lutadores e o cenário adicional de ambos os lados. O áudio das duas execuções coincidiu byte a byte. A versão 16:9 também restaurou um save feito em 4:3 e mostrou o combate no porto.
 
 ## Verificação
 
