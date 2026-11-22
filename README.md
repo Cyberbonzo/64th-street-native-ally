@@ -43,6 +43,8 @@ O teste comparou duas execuções de 3.351 quadros com a mesma sequência de ent
 
 O gerador também amplia os limites horizontais que o programa principal usa para montar cada personagem. No teste com um save de Allen no trem, a versão anterior descartava parte do inimigo de roxo na lateral direita. Com a correção, o mesmo quadro mostra o corpo inteiro. O teste usou uma cópia do save.
 
+A revisão seguinte comparou a versão instalada com uma compilação de referência que aceita peças de personagens até 37 pixels mais à esquerda e 42 mais à direita. Os 11.300 quadros de vídeo e os blocos de áudio coincidiram entre as duas. O teste cobriu a abertura e a rua com Rick (5.100 quadros), duas posições no trem com Allen (1.800 quadros cada) e o combate com vários inimigos no porto (2.600 quadros). Em cada sequência, as duas compilações receberam as mesmas entradas.
+
 No ROG Ally com Bazzite, o atalho da Steam abriu o executável Linux do microSD em uma janela fullscreen de 1920×1080. O SDL reconheceu o controle. O teste com entradas programadas passou por crédito, seleção de Rick e combate na primeira fase. A verificação automatizada de 70.000 quadros também exercitou os dois jogadores. As demais fases ainda precisam de verificação individual.
 
 Em uma compilação limpa, a mesma sequência de 1.350 quadros reproduziu os mesmos hashes de vídeo e de áudio da compilação de teste. Um teste separado salvou no quadro 510, encerrou, reabriu e avançou 47 quadros. A imagem coincidiu byte a byte com a execução contínua até o quadro 557. O roteiro de teste da placa está em [tools/verify_board.py](tools/verify_board.py).
