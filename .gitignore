@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+/build/
+/vendor/
+/private/
+/chips/
+/dist/
+/generated/
+*.rom
+*.zip
+*.mcu
+*.bin
+*.ppm
+*.bmp
+*.o
+*.so
+.work/
